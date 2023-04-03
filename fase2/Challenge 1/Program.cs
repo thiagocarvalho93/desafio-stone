@@ -18,9 +18,9 @@ namespace DesafioStone
             this.R = this.InitialState.Count();
             this.C = this.InitialState[0].Count();
             this.HeuristicsGrid = this.GetHeuristicsGrid(this.InitialState);
-            this.GridList = new byte[50000][][];
+            this.GridList = new byte[10000][][];
             this.GridList[0] = this.InitialState;
-            this.GetNextPropagations(200);
+            this.GetNextPropagations(50);
         }
 
         private byte[][] GetInitialState()
@@ -42,7 +42,7 @@ namespace DesafioStone
 
             while (this.LastTurnGenerated < initialTurn + numberOfStates)
             {
-                this.GridList[this.LastTurnGenerated + 1] = this.GetNextGrid(this.GridList[this.LastTurnGenerated]);
+                this.GridList[this.LastTurnGenerated + 1] = this.GetNextGridParallel(this.GridList[this.LastTurnGenerated]);
                 this.LastTurnGenerated++;
                 System.Console.WriteLine(this.LastTurnGenerated);
             }
@@ -53,6 +53,60 @@ namespace DesafioStone
         {
             return grid.Select((row, rowIndex) => row.Select((el, colIndex) => this.GetNextCellValue(el, this.CountNeighbours(grid, rowIndex, colIndex))).ToArray()).ToArray();
         }
+
+        private byte[][] GetNextGridParallel(byte[][] grid)
+        {
+            // Split the rows into chunks
+            int chunkSize = this.R / Environment.ProcessorCount;
+            int lastChunkSize = this.R - chunkSize * (Environment.ProcessorCount - 1);
+            List<Tuple<int, int>> chunks = new List<Tuple<int, int>>();
+            int start = 0;
+            for (int i = 0; i < Environment.ProcessorCount - 1; i++)
+            {
+                chunks.Add(new Tuple<int, int>(start, start + chunkSize));
+                start += chunkSize;
+            }
+            chunks.Add(new Tuple<int, int>(start, start + lastChunkSize));
+
+            // Create a list of tasks, one for each chunk
+            List<Task<byte[][]>> tasks = new List<Task<byte[][]>>();
+            foreach (Tuple<int, int> chunk in chunks)
+            {
+                int chunkStart = chunk.Item1;
+                int chunkEnd = chunk.Item2;
+                tasks.Add(Task.Run(() =>
+                {
+                    byte[][] chunkResult = new byte[chunkEnd - chunkStart][];
+                    for (int i = chunkStart; i < chunkEnd; i++)
+                    {
+                        byte[] row = grid[i];
+                        byte[] newRow = new byte[this.C];
+                        for (int j = 0; j < this.C; j++)
+                        {
+                            newRow[j] = this.GetNextCellValue(row[j], this.CountNeighbours(grid, i, j));
+                        }
+                        chunkResult[i - chunkStart] = newRow;
+                    }
+                    return chunkResult;
+                }));
+            }
+
+            // Wait for all tasks to complete and merge the results
+            Task.WaitAll(tasks.ToArray());
+            byte[][] result = new byte[this.R][];
+            int index = 0;
+            foreach (Task<byte[][]> task in tasks)
+            {
+                byte[][] chunkResult = task.Result;
+                foreach (byte[] row in chunkResult)
+                {
+                    result[index] = row;
+                    index++;
+                }
+            }
+            return result;
+        }
+
 
         private byte GetNextCellValue(byte cellValue, byte neighboursCount)
         {
@@ -83,6 +137,14 @@ namespace DesafioStone
                 }
             }
             return neighboursCount;
+        }
+
+        public void RemoveUntilTurn(int turn)
+        {
+            for (int i = 0; i < turn; i++)
+            {
+                this.GridList[i] = new byte[0][];
+            }
         }
     }
 
@@ -135,11 +197,6 @@ namespace DesafioStone
             moves.Add(new Movement("D", 1, 0));
             moves.Add(new Movement("L", 0, -1));
             moves.Add(new Movement("R", 0, 1));
-
-            if (this.Turn >= board.LastTurnGenerated)
-            {
-                board.GetNextPropagations(200);
-            }
 
             var possibleMoves = moves.Where(move => this.GetBoundaries(move, board));
 
@@ -201,6 +258,28 @@ namespace DesafioStone
             {
                 Node selectedNode = openSet.Dequeue();
 
+                // Generate new propagations on demand
+                if (selectedNode.Turn >= board.LastTurnGenerated)
+                {
+                    // Clear memory
+                    // Remove boards that will no longer be used
+                    var worstTurn = openSet.UnorderedItems.MinBy(x => x.Element.Turn).Element.Turn;
+                    board.RemoveUntilTurn(worstTurn - 1);
+                    // Discard elements with more than double the best Heuristic
+                    var topElement = openSet.Peek();
+                    var newSet = new PriorityQueue<Node, int>();
+                    foreach (var node in openSet.UnorderedItems)
+                    {
+                        if (node.Element.H <= topElement.H * 2)
+                        {
+                            newSet.Enqueue(node.Element, node.Priority);
+                        }
+                    }
+                    board.GetNextPropagations(200);
+
+                    System.Console.WriteLine("Finding path...");
+                }
+
                 var nextNodes = selectedNode.getNextNodes(board);
 
                 foreach (Node nextNode in nextNodes)
@@ -223,7 +302,6 @@ namespace DesafioStone
                     closedSet.Add(nextNode.ToString());
                 }
             }
-
         }
 
         //TODO: Solution tester

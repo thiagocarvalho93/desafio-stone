@@ -25,7 +25,7 @@ namespace DesafioStone
 
         private byte[][] GetInitialState()
         {
-            string[] lines = File.ReadAllLines("input.txt");
+            string[] lines = File.ReadAllLines("input1.txt");
             return lines.Select(line => line.Split(" ").Select(str => byte.Parse(str)).ToArray()).ToArray();
         }
 
@@ -100,11 +100,6 @@ namespace DesafioStone
             this.Path = new();
         }
 
-        public bool EqualsString(Node node)
-        {
-            return node.ToString() == this.ToString();
-        }
-
         public Node(byte row, byte column, short h, short turn, List<string> path)
         {
             Row = row;
@@ -114,9 +109,21 @@ namespace DesafioStone
             Path = path;
         }
 
+        public bool EqualsString(Node node)
+        {
+            return node.ToString() == this.ToString();
+        }
+
+
         public string ToString()
         {
             return $"r{this.Row}c{this.Column}t{this.Turn}";
+        }
+
+        public void WriteSolutionFile(string filePath)
+        {
+            string text = string.Join(" ", this.Path);
+            File.WriteAllText(filePath, text);
         }
 
         public List<Node> getNextNodes(Board board)
@@ -208,6 +215,8 @@ namespace DesafioStone
                         System.Console.WriteLine($"Turn {nextNode.Turn}");
                         System.Console.WriteLine(watch.ElapsedMilliseconds + "ms");
 
+                        nextNode.WriteSolutionFile("solution.txt");
+
                         break;
                     }
                     openSet.Enqueue(nextNode, nextNode.H + nextNode.Turn);
@@ -217,6 +226,7 @@ namespace DesafioStone
 
         }
 
+        //TODO: Solution tester
         static void Main(string[] args)
         {
             try

@@ -20,7 +20,7 @@ namespace DesafioStone
             this.HeuristicsGrid = this.GetHeuristicsGrid(this.InitialState);
             this.GridList = new byte[50000][][];
             this.GridList[0] = this.InitialState;
-            this.GetNextPropagations(50);
+            this.GetNextPropagations(200);
         }
 
         private byte[][] GetInitialState()
@@ -129,9 +129,9 @@ namespace DesafioStone
             moves.Add(new Movement("L", 0, -1));
             moves.Add(new Movement("R", 0, 1));
 
-            if (this.Turn < board.LastTurnGenerated)
+            if (this.Turn >= board.LastTurnGenerated)
             {
-                board.GetNextPropagations(50);
+                board.GetNextPropagations(200);
             }
 
             var possibleMoves = moves.Where(move => this.GetBoundaries(move, board));

@@ -7,10 +7,10 @@ namespace DesafioStone
 {
     public class Node
     {
-        public byte Row { get; set; } = 0;
-        public byte Column { get; set; } = 0;
+        public int Row { get; set; } = 0;
+        public int Column { get; set; } = 0;
         public short H { get; set; } = 0;
-        public short Turn { get; set; } = 0;
+        public ushort Turn { get; set; } = 0;
         public List<char> Path { get; set; }
 
         public Node()
@@ -18,7 +18,7 @@ namespace DesafioStone
             this.Path = new();
         }
 
-        public Node(byte row, byte column, short h, short turn, List<char> path)
+        public Node(byte row, byte column, short h, ushort turn, List<char> path)
         {
             Row = row;
             Column = column;
@@ -47,15 +47,26 @@ namespace DesafioStone
         {
             var nextGrid = board.GridList[this.Turn + 1];
 
-            var possibleMoves = moveOptions.Where(move => this.GetBoundaries(move, board));
+            List<Node> nextNodes = new();
 
-            return possibleMoves.Select((possibleMove) => new Node(
-                                (byte)(possibleMove.Row + this.Row),
-                               (byte)(possibleMove.Column + this.Column),
-                                board.HeuristicsGrid[possibleMove.Row + this.Row][possibleMove.Column + this.Column],
-                                (short)(this.Turn + 1),
-                                this.Path.Append(possibleMove.Direction).ToList()))
-                                .ToList();
+            foreach (Movement moveOption in moveOptions)
+            {
+                if (this.GetBoundaries(moveOption, board))
+                {
+                    int r = moveOption.Row + this.Row;
+                    int c = moveOption.Column + this.Column;
+                    nextNodes.Add(new Node()
+                    {
+                        Column = c,
+                        Row = r,
+                        H = board.HeuristicsGrid[r][c],
+                        Path = this.Path.Append(moveOption.Direction).ToList(),
+                        Turn = (ushort)(this.Turn + 1)
+                    });
+                }
+            }
+
+            return nextNodes;
         }
 
         public bool GetBoundaries(Movement move, Board board)
@@ -63,7 +74,7 @@ namespace DesafioStone
             return this.Row + move.Row >= 0 &&
                     this.Column + move.Column >= 0 &&
                     this.Row + move.Row < board.R &&
-                    this.Column + move.Column < board.C &&
+                       this.Column + move.Column < board.C &&
                     board.GridList[this.Turn + 1][this.Row + move.Row][this.Column + move.Column] != 1;
         }
     }

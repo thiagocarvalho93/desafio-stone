@@ -18,22 +18,24 @@ namespace DesafioStone
             this.R = this.InitialState.Count();
             this.C = this.InitialState[0].Count();
             this.HeuristicsGrid = this.GetHeuristicsGrid(this.InitialState);
-            this.GridList = new byte[10000][][];
+            this.GridList = new byte[50000][][];
             this.GridList[0] = this.InitialState;
-            this.GetNextPropagations(50);
+            this.GetNextPropagations(200);
         }
 
         private byte[][] GetInitialState()
         {
-            string[] lines = File.ReadAllLines("input1.txt");
+            string[] lines = File.ReadAllLines("input.txt");
             return lines.Select(line => line.Split(" ").Select(str => byte.Parse(str)).ToArray()).ToArray();
         }
 
         private short[][] GetHeuristicsGrid(byte[][] initialBoard)
         {
             System.Console.WriteLine("Calculating heuristics in advance...");
-            return initialBoard.Select((row, rowIndex) => row.Select((col, colIndex) => (short)(Math.Abs(rowIndex - (this.R - 1)) + Math.Abs(colIndex - (this.C - 1)))).ToArray()).ToArray();
+            //Euclidean distance
+            return initialBoard.Select((row, rowIndex) => row.Select((col, colIndex) => (short)(Math.Sqrt(Math.Pow(rowIndex - (this.R - 1), 2) + Math.Pow(colIndex - (this.C - 1), 2)))).ToArray()).ToArray();
         }
+
 
         public void GetNextPropagations(int numberOfStates)
         {
@@ -44,7 +46,6 @@ namespace DesafioStone
             {
                 this.GridList[this.LastTurnGenerated + 1] = this.GetNextGridParallel(this.GridList[this.LastTurnGenerated]);
                 this.LastTurnGenerated++;
-                System.Console.WriteLine(this.LastTurnGenerated);
             }
             System.Console.WriteLine("OK");
         }
@@ -182,7 +183,7 @@ namespace DesafioStone
             return $"r{this.Row}c{this.Column}t{this.Turn}";
         }
 
-        public void WriteSolutionFile(string filePath)
+        public void WriteNodePathFile(string filePath)
         {
             string text = string.Join(" ", this.Path);
             File.WriteAllText(filePath, text);
@@ -245,10 +246,10 @@ namespace DesafioStone
             Node startNode = new Node();
             bool foundSolution = false;
 
-            var openSet = new PriorityQueue<Node, int>();
+            PriorityQueue<Node, int> openSet = new PriorityQueue<Node, int>();
             openSet.Enqueue(startNode, startNode.H + startNode.Turn);
 
-            HashSet<string> closedSet = new();
+            HashSet<string> closedSet = new HashSet<string>();
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -256,27 +257,26 @@ namespace DesafioStone
 
             while (openSet.Count > 0 && !foundSolution)
             {
-                Node selectedNode = openSet.Dequeue();
+                Node selectedNode;
+
+                selectedNode = openSet.Dequeue();
 
                 // Generate new propagations on demand
                 if (selectedNode.Turn >= board.LastTurnGenerated)
                 {
+                    System.Console.WriteLine("Cleaning memory...");
                     // Clear memory
                     // Remove boards that will no longer be used
-                    var worstTurn = openSet.UnorderedItems.MinBy(x => x.Element.Turn).Element.Turn;
-                    board.RemoveUntilTurn(worstTurn - 1);
-                    // Discard elements with more than double the best Heuristic
                     var topElement = openSet.Peek();
-                    var newSet = new PriorityQueue<Node, int>();
-                    foreach (var node in openSet.UnorderedItems)
-                    {
-                        if (node.Element.H <= topElement.H * 2)
-                        {
-                            newSet.Enqueue(node.Element, node.Priority);
-                        }
-                    }
+                    var minTurn = openSet.UnorderedItems.MinBy(x => x.Element.Turn).Element.Turn;
+                    board.RemoveUntilTurn(minTurn - 1);
+                    closedSet.RemoveWhere(el => int.Parse(el.Split("t")[1]) <= minTurn);
+
                     board.GetNextPropagations(200);
 
+                    System.Console.WriteLine($"{watch.ElapsedMilliseconds}ms running");
+                    System.Console.WriteLine($"Best node: R{topElement.Row} C{topElement.Column} H{topElement.H}");
+                    System.Console.WriteLine($"Open set: {openSet.Count} \nClosed set: {closedSet.Count}");
                     System.Console.WriteLine("Finding path...");
                 }
 
@@ -284,7 +284,9 @@ namespace DesafioStone
 
                 foreach (Node nextNode in nextNodes)
                 {
-                    if (closedSet.Contains(nextNode.ToString())) continue;
+                    bool alreadyVisited = closedSet.Contains(nextNode.ToString());
+
+                    if (alreadyVisited) continue;
 
                     if (board.GridList[nextNode.Turn][nextNode.Row][nextNode.Column] == 4)
                     {
@@ -294,7 +296,7 @@ namespace DesafioStone
                         System.Console.WriteLine($"Turn {nextNode.Turn}");
                         System.Console.WriteLine(watch.ElapsedMilliseconds + "ms");
 
-                        nextNode.WriteSolutionFile("solution.txt");
+                        nextNode.WriteNodePathFile("solution.txt");
 
                         break;
                     }
@@ -303,6 +305,9 @@ namespace DesafioStone
                 }
             }
         }
+
+
+
 
         //TODO: Solution tester
         static void Main(string[] args)

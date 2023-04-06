@@ -42,11 +42,23 @@ namespace DesafioStone
                     // Clear memory
                     // Remove boards that will no longer be used
                     var topElement = openSet.Peek();
+
                     var minTurn = openSet.UnorderedItems.MinBy(x => x.Element.Turn).Element.Turn;
+                    // var minTurn = topElement.Turn / 2;
+
                     board.RemoveUntilTurn(minTurn - 1);
                     closedSet.RemoveWhere(el => int.Parse(el.Split("t")[1]) <= minTurn);
 
+                    // var filteredItems = openSet.UnorderedItems.ToList().Where(el => el.Element.Turn > minTurn).ToList();
+                    // openSet.Clear();
+                    // foreach (var filteredItem in filteredItems)
+                    // {
+                    //     openSet.Enqueue(filteredItem.Element, filteredItem.Element.H + filteredItem.Element.Turn);
+                    // }
+
                     board.GetNextPropagations(200);
+
+                    closestNode.WriteNodePathFile("closest.txt");
 
                     System.Console.WriteLine($"{watch.ElapsedMilliseconds}ms running");
                     System.Console.WriteLine($"Last node: R{topElement.Row} C{topElement.Column} H{topElement.H}");

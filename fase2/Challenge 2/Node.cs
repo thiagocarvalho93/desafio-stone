@@ -12,6 +12,7 @@ namespace DesafioStone
         public short H { get; set; } = 0;
         public ushort Turn { get; set; } = 0;
         public List<char> Path { get; set; }
+        public byte Lives { get; set; } = 6;
 
         public Node()
         {
@@ -45,7 +46,8 @@ namespace DesafioStone
 
         public List<Node> getNextNodes(Board board, List<Movement> moveOptions)
         {
-            var nextGrid = board.GridList[this.Turn + 1];
+            ushort nextTurn = (ushort)(this.Turn + 1);
+            var nextGrid = board.GridList[nextTurn];
 
             List<Node> nextNodes = new();
 
@@ -55,13 +57,17 @@ namespace DesafioStone
                 {
                     short r = (short)(moveOption.Row + this.Row);
                     short c = (short)(moveOption.Column + this.Column);
+                    bool lostLife = board.GridList[nextTurn][r][c] == 1;
+                    int lives = lostLife ? (this.Lives - 1) : this.Lives;
+
                     nextNodes.Add(new Node()
                     {
                         Column = c,
                         Row = r,
                         H = board.HeuristicsGrid[r][c],
                         Path = this.Path.Append(moveOption.Direction).ToList(),
-                        Turn = (ushort)(this.Turn + 1)
+                        Lives = (byte)lives,
+                        Turn = nextTurn
                     });
                 }
             }
@@ -71,12 +77,16 @@ namespace DesafioStone
 
         public bool GetBoundaries(Movement move, Board board)
         {
-            return this.Row + move.Row >= 0 &&
-                    this.Column + move.Column >= 0 &&
-                    this.Row + move.Row < board.R &&
-                    this.Column + move.Column < board.C &&
-                    board.GridList[this.Turn + 1][this.Row + move.Row][this.Column + move.Column] != 1;
+            if (this.Row + move.Row < 0 || this.Column + move.Column < 0 || this.Row + move.Row >= board.R || this.Column + move.Column >= board.C)
+                return false;
+ 
+            if (board.GridList[this.Turn + 1][this.Row + move.Row][this.Column + move.Column] == 1)
+            {
+                if (this.Lives > 0) return true;
+                return false;
+            }
+ 
+            return true;
         }
     }
-
 }
